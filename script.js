@@ -31,6 +31,7 @@ function processLists(lists) {
         console.log(lists);
         var isEmailList = l => l.name === 'Email Lists';
         var email = lists.filter(isEmailList)[0];
+        var listNames = lists.map(l=>l.name);
 
         function include(l) {
                 return (!isEmailList(l));
@@ -42,9 +43,20 @@ function processLists(lists) {
                 lists.filter(include).forEach(processList);
         });
 
+        var emailCards = {};
+
         function processEmail(l) {
                 return window.Trello.get('/lists/'+l.id+'/cards').then(function(cards) {
-                        var dels = cards.map(c => window.Trello.del('/cards/'+c.id));
+                        var toDelete = [];
+                        cards.forEach(function(c) {
+                                if(listNames.indexOf(c.name) == -1) {
+                                        console.log('deleting',c.name);
+                                        toDelete.push(c);
+                                } else {
+                                        emailCards[c.name] = c;
+                                }
+                        });
+                        var dels = toDelete.map(c => window.Trello.del('/cards/'+c.id));
                         return Promise.all(dels);
                 });
         }
@@ -60,9 +72,35 @@ function processLists(lists) {
                         });
                         console.log(l.name, emails);
                         if(emails.length) {
-                                createCard(l.name, emails.map(x=>x.displayEmail).join('\n'), l.pos);
+                                if(emailCards[l.name]) {
+                                        console.log('updating',l.name);
+                                        updateCard(emailCards[l.name], emails.map(x=>x.displayEmail).sort().join('\n'), l.pos);
+                                }
+                                else {
+                                        console.log('creating new card',l.name);
+                                        createCard(l.name, emails.map(x=>x.displayEmail).sort().join('\n'), l.pos);
+                                }
+                        }
+                        else if(emailCards[l.name]) {
+                                //delete empty card
+                                console.log('deleting empty card',l.name);
+                                window.Trello.del('/cards/'+emailCards[l.name].id);
                         }
                 });
+
+                function updateCard(card, desc, pos) {
+                        json = {
+                                desc : desc,
+                                pos : pos
+                        };
+                        if(card.desc == json.desc) {
+                                console.log('no change in card',card);
+                        }
+                        else {
+                                console.log('updating',card, json);
+                                window.Trello.put('/cards/'+card.id, json);
+                        }
+                }
 
                 function createCard(name, desc, pos) {
                         json = {
