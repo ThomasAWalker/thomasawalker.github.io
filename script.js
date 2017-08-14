@@ -1,18 +1,27 @@
-window.Trello.authorize({
-        type: 'popup',
-        name: 'Novice group email list',
-        scope: {
-                read: 'true',
-                write: 'true' },
-                expiration: 'never',
-                success: authenticationSuccess,
-                error: authenticationFailure
-});
+
+function start() {
+        updateStatus('authenticating');
+        window.Trello.authorize({
+                type: 'popup',
+                name: 'Novice group email list',
+                scope: {
+                        read: 'true',
+                        write: 'true' },
+                        expiration: 'never',
+                        success: authenticationSuccess,
+                        error: authenticationFailure
+        });
+}
+
+function updateStatus(stat) {
+        $('#status').text(stat);
+}
 
 
 function authenticationSuccess() {
         console.log('authenticated');
         window.Trello.get('/members/me/boards').then(function(boards) {
+                updateStatus('got boards');
                 boards.filter(b=>b.name == 'Tuesday Evening Groups').forEach(processBoard)
         });
 }
@@ -22,7 +31,7 @@ function authenticationFailure() {
 }
 
 function processBoard(b) {
-        console.log('processing board',b);
+        updateStatus('processing board:'+b.name);
         var url = 'boards/'+b.id+'/lists';
         window.Trello.get(url).then(processLists);
 }
@@ -156,3 +165,5 @@ function a() {
         });
 
 }
+
+start();
