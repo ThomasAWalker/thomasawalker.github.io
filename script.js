@@ -39,17 +39,28 @@ function processBoard(b) {
 function processLists(lists) {
         console.log(lists);
         var isEmailList = l => l.name === 'Email Lists';
+        var isGroupList = l => l.name === 'Groups';
         var email = lists.filter(isEmailList)[0];
+        var groups = lists.filter(isGroupList)[0];
         var listNames = lists.map(l=>l.name);
 
+        //TODO bad
+        var listEmails = {};
+
+
         function include(l) {
-                return (!isEmailList(l));
+                return (!isEmailList(l) && !isGroupList(l));
         }
 
         var cardDel = processEmail(email);
 
         cardDel.then(function() {
-                lists.filter(include).forEach(processList);
+                var pro = lists.filter(include).map(processList);
+                console.log(pro);
+                return Promise.all(pro).then(function() {
+                        console.log('list Emails',listEmails);
+                        processGroups(groups);
+                });
         });
 
         var emailCards = {};
@@ -70,8 +81,27 @@ function processLists(lists) {
                 });
         }
 
+        function processGroups(l) {
+                return window.Trello.get('/lists/'+l.id+'/cards').then(function(cards) {
+                        cards.forEach(function(c) {
+                                var name = c.name;
+                                var groups = c.desc.split('\n');
+                                var emails = [];
+                                groups.forEach(function(g) {
+                                        var gEm = listEmails[g];
+                                        console.log(g, gEm);
+                                        if(gEm) {
+                                                emails = emails.concat(gEm);
+                                        }
+                                });
+                                console.log(c.name,emails);
+                                createCard(c.name, emails.map(x=>x.displayEmail).sort().join('\n'), l.pos);
+                        });
+                });
+        }
+
         function processList(l) {
-                window.Trello.get('/lists/'+l.id+'/cards').then(function(cards) {
+                return window.Trello.get('/lists/'+l.id+'/cards').then(function(cards) {
                         var emails = [];
                         cards.forEach(function(c) {
                                 var email = contactDetailsFromCard(c);
@@ -81,6 +111,7 @@ function processLists(lists) {
                         });
                         console.log(l.name, emails);
                         if(emails.length) {
+                                listEmails[l.name] = emails;
                                 if(emailCards[l.name]) {
                                         console.log('updating',l.name);
                                         updateCard(emailCards[l.name], emails.map(x=>x.displayEmail).sort().join('\n'), l.pos);
@@ -110,17 +141,17 @@ function processLists(lists) {
                                 window.Trello.put('/cards/'+card.id, json);
                         }
                 }
+        }
 
-                function createCard(name, desc, pos) {
-                        json = {
-                                name : name,
-                                desc : desc,
-                                idList : email.id,
-                                pos : pos
-                        };
-                        console.log('creating',json);
-                        window.Trello.post('/cards', json);
-                }
+        function createCard(name, desc, pos) {
+                json = {
+                        name : name,
+                        desc : desc,
+                        idList : email.id,
+                        pos : pos
+                };
+                console.log('creating',json);
+                window.Trello.post('/cards', json);
         }
 }
 
