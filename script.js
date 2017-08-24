@@ -56,7 +56,6 @@ function processLists(lists) {
 
         cardDel.then(function() {
                 var pro = lists.filter(include).map(processList);
-                console.log(pro);
                 return Promise.all(pro).then(function() {
                         console.log('list Emails',listEmails);
                         processGroups(groups);
